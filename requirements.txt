@@ -1,0 +1,11 @@
+youtube-transcript-api
+yt-dlp
+tiktoken
+python-dotenv
+
+# LLM provider SDK (OpenRouter)
+openai
+
+# FastAPI stack (used in later phases; harmless for Phase 1 environment readiness)
+fastapi
+uvicorn[standard]
