@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0206  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -18,10 +18,10 @@ Define response schema for POST /api/summarize:
 
 ## Acceptance Criteria
 
-- [ ] Response includes summary text
-- [ ] Response includes video_id
-- [ ] Response includes provider name
-- [ ] Response includes transcript_stats
+- [x] Response includes summary text
+- [x] Response includes video_id
+- [x] Response includes provider name
+- [x] Response includes transcript_stats
 
 ---
 

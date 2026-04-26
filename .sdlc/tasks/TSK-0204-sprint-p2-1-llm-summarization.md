@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0204  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,9 +17,9 @@ Implement LLM summarization in the API endpoint:
 
 ## Acceptance Criteria
 
-- [ ] LLM called successfully
-- [ ] Returns summary text
-- [ ] Handles API errors with user-friendly messages
+- [x] LLM called successfully
+- [x] Returns summary text
+- [x] Handles API errors with user-friendly messages
 
 ---
 

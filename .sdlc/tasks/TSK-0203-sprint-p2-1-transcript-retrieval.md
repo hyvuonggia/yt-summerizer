@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0203  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,9 +17,9 @@ Implement transcript retrieval in the API endpoint:
 
 ## Acceptance Criteria
 
-- [ ] Transcript retrieved successfully
-- [ ] No subtitles returns HTTP 422 with "NO_SUBTITLES_AVAILABLE"
-- [ ] Network errors handled gracefully
+- [x] Transcript retrieved successfully
+- [x] No subtitles returns HTTP 422 with "NO_SUBTITLES_AVAILABLE"
+- [x] Network errors handled gracefully
 
 ---
 

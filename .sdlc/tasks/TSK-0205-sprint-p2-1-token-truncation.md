@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0205  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,9 +17,9 @@ Implement token-aware truncation in the API endpoint:
 
 ## Acceptance Criteria
 
-- [ ] Token counting works in API
-- [ ] Truncation applied when needed
-- [ ] Response includes transcript_stats
+- [x] Token counting works in API
+- [x] Truncation applied when needed
+- [x] Response includes transcript_stats
 
 ---
 

@@ -93,11 +93,157 @@ async def summarize_video(request: SummarizeRequest):
     
     Returns 400 for invalid URLs, 422 for missing subtitles.
     """
-    # TODO: Implement actual summarization logic
-    # For now, return a placeholder response
-    raise HTTPException(
-        status_code=501,
-        detail="Summarization endpoint not yet implemented. This is a skeleton for Sprint P2.1."
+    import time
+    from datetime import datetime
+    from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+    
+    start_time = time.time()
+    
+    # Step 1: Validate URL and extract video ID (TSK-0202)
+    video_id = extract_video_id(request.url)
+    if not video_id:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": f"Could not extract video ID from URL: {request.url}",
+                "error_code": "INVALID_URL",
+                "suggested_formats": [
+                    "https://www.youtube.com/watch?v=VIDEO_ID",
+                    "https://youtu.be/VIDEO_ID",
+                    "https://www.youtube.com/embed/VIDEO_ID"
+                ]
+            }
+        )
+    
+    # Step 2: Fetch video metadata (TSK-0203 - metadata needed for context)
+    try:
+        metadata = fetch_video_metadata(video_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": f"Could not fetch video metadata: {str(e)}",
+                "error_code": "VIDEO_NOT_FOUND",
+                "video_id": video_id
+            }
+        )
+    
+    # Step 3: Fetch transcript (TSK-0203)
+    try:
+        transcript_data = fetch_transcript(video_id, language=request.language or "en")
+    except TranscriptsDisabled:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "Transcripts are disabled for this video",
+                "error_code": "TRANSCRIPTS_DISABLED",
+                "video_id": video_id
+            }
+        )
+    except NoTranscriptFound:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "No subtitles available for this video",
+                "error_code": "NO_SUBTITLES_AVAILABLE",
+                "video_id": video_id,
+                "suggested_action": "Try a different video with enabled captions"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": f"Error fetching transcript: {str(e)}",
+                "error_code": "TRANSCRIPT_ERROR",
+                "video_id": video_id
+            }
+        )
+    
+    # Step 4: Calculate transcript stats (TSK-0205 - token truncation)
+    transcript_text = transcript_data.get('total_text', '')
+    word_count = len(transcript_text.split())
+    char_count = len(transcript_text)
+    
+    # Step 5: Call LLM summarization (TSK-0204)
+    try:
+        summary, llm_stats = call_llm_summarize(transcript_text, metadata)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": f"Error during summarization: {str(e)}",
+                "error_code": "LLM_API_ERROR",
+                "video_id": video_id
+            }
+        )
+    
+    if not summary:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": llm_stats.get("error", "Summarization failed"),
+                "error_code": llm_stats.get("error_code", "LLM_API_ERROR"),
+                "video_id": video_id
+            }
+        )
+    
+    # Calculate processing time
+    processing_time = time.time() - start_time
+    
+    # Step 6: Build response (TSK-0206)
+    from .models import VideoMetadata, TranscriptData, LLMStats
+    
+    # Build VideoMetadata
+    video_metadata = VideoMetadata(
+        video_id=metadata.get('video_id', video_id),
+        title=metadata.get('title', 'Unknown'),
+        channel=metadata.get('channel', 'Unknown'),
+        channel_id=metadata.get('channel_id'),
+        duration=metadata.get('duration', 0),
+        view_count=metadata.get('view_count'),
+        upload_date=metadata.get('upload_date'),
+        description=metadata.get('description'),
+        thumbnail=metadata.get('thumbnail'),
+        categories=metadata.get('categories', []),
+        tags=metadata.get('tags', [])
+    )
+    
+    # Build TranscriptData
+    transcript_stats_model = TranscriptData(
+        video_id=video_id,
+        language=transcript_data.get('language', 'English'),
+        language_code=transcript_data.get('language_code', 'en'),
+        is_generated=transcript_data.get('is_generated', False),
+        snippet_count=transcript_data.get('snippet_count', 0),
+        total_duration=transcript_data.get('total_duration', 0.0),
+        total_text=transcript_text[:500] + "..." if len(transcript_text) > 500 else transcript_text,  # Truncate for response
+        word_count=word_count,
+        character_count=char_count,
+        token_count=llm_stats.get('transcript_tokens')
+    )
+    
+    # Build LLMStats
+    llm_stats_model = LLMStats(
+        model=llm_stats.get('model', 'unknown'),
+        provider=llm_stats.get('provider', 'openrouter'),
+        input_tokens=llm_stats.get('input_tokens', 0),
+        output_tokens=llm_stats.get('output_tokens', 0),
+        total_tokens=llm_stats.get('total_tokens', 0),
+        finish_reason=llm_stats.get('finish_reason', 'unknown'),
+        estimated_cost_usd=llm_stats.get('estimated_cost_usd', '$0.00'),
+        api_time=llm_stats.get('api_time', 0.0)
+    )
+    
+    return SummarizeResponse(
+        success=True,
+        summary=summary,
+        video_id=video_id,
+        metadata=video_metadata,
+        transcript_stats=transcript_stats_model,
+        llm_stats=llm_stats_model,
+        processing_time=processing_time,
+        timestamp=datetime.now().isoformat()
     )
 
 

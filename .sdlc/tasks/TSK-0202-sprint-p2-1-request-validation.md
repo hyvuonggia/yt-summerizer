@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0202  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,9 +17,9 @@ Implement request validation:
 
 ## Acceptance Criteria
 
-- [ ] Invalid URL returns HTTP 400
-- [ ] Error message identifies the issue
-- [ ] Valid URL passes validation
+- [x] Invalid URL returns HTTP 400
+- [x] Error message identifies the issue
+- [x] Valid URL passes validation
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0201  
 **Sprint:** P2.1 — Backend API Skeleton + Core Summarize Endpoint  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -18,9 +18,9 @@ Create FastAPI application structure:
 
 ## Acceptance Criteria
 
-- [ ] FastAPI app runs with uvicorn
-- [ ] POST /api/summarize defined
-- [ ] Returns 501 (not implemented yet) or actual response
+- [x] FastAPI app runs with uvicorn
+- [x] POST /api/summarize defined
+- [x] Returns actual response (implemented)
 
 ---
 
