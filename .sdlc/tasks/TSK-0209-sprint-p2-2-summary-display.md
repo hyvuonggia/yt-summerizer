@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0209  
 **Sprint:** P2.2 — React Frontend (Form + Loading + Output/Error)  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -18,14 +18,14 @@ Display summary output component:
 
 ## Acceptance Criteria
 
-- [ ] Summary displayed when API succeeds
-- [ ] Video info shown (title, channel)
-- [ ] Stats shown (provider, tokens)
-- [ ] Formatted nicely (not raw text blob)
+- [x] Summary displayed when API succeeds
+- [x] Video info shown (title, channel)
+- [x] Stats shown (provider, model, tokens, transcript words, processing time)
+- [x] Formatted nicely — paragraphs split on blank lines, bullet-list detection
 
 ---
 
 ## Deliverables
 
-- Component: `src/components/SummaryDisplay.tsx`
-- Renders: `{ summary, video_id, provider, transcript_stats }`
+- Component: [frontend/src/components/SummaryDisplay.tsx](../../frontend/src/components/SummaryDisplay.tsx)
+- Tests: [frontend/src/components/SummaryDisplay.test.tsx](../../frontend/src/components/SummaryDisplay.test.tsx)

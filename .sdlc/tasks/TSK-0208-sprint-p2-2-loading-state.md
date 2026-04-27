@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0208  
 **Sprint:** P2.2 — React Frontend (Form + Loading + Output/Error)  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,13 +17,14 @@ Implement loading indicator during API call:
 
 ## Acceptance Criteria
 
-- [ ] Spinner/loading shown during API call
-- [ ] Button disabled while loading
-- [ ] User knows work is in progress
+- [x] Spinner/loading shown during API call (`role="status"` live region)
+- [x] Button disabled while loading (label switches to "Summarizing\u2026")
+- [x] User knows work is in progress
 
 ---
 
 ## Deliverables
 
-- Loading component or inline state
-- Updates state during fetch → response cycle
+- Inline loading state in [frontend/src/components/SummarizeForm.tsx](../../frontend/src/components/SummarizeForm.tsx)
+- CSS spinner in [frontend/src/styles.css](../../frontend/src/styles.css)
+- Tests: [frontend/src/components/SummarizeForm.test.tsx](../../frontend/src/components/SummarizeForm.test.tsx) (loading-state cases)

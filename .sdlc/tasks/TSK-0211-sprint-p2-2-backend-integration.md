@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0211  
 **Sprint:** P2.2 — React Frontend (Form + Loading + Output/Error)  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -18,13 +18,15 @@ Integrate React frontend with backend API:
 
 ## Acceptance Criteria
 
-- [ ] API called successfully
-- [ ] Response parsed correctly
-- [ ] Network errors handled
+- [x] API called successfully (POST `/api/summarize` with `{ url }`)
+- [x] Response parsed correctly into `SummarizeResponse`
+- [x] Network errors handled (`NETWORK_ERROR`) and FastAPI `detail.error_code` propagated
 
 ---
 
 ## Deliverables
 
-- API call in form component
-- Handles loading/success/error states
+- API client: [frontend/src/api.ts](../../frontend/src/api.ts)
+- Types: [frontend/src/types.ts](../../frontend/src/types.ts)
+- Tests: [frontend/src/api.test.ts](../../frontend/src/api.test.ts)
+- Configurable base URL via `VITE_API_BASE_URL` ([frontend/.env.example](../../frontend/.env.example))

@@ -8,8 +8,9 @@ import os
 from typing import List
 from dotenv import load_dotenv
 
-# Load .env file if it exists
-load_dotenv()
+# Load .env file if it exists.
+# override=True ensures .env values always take precedence over shell env vars.
+load_dotenv(override=True)
 
 
 def _get_env(key: str, default: str) -> str:
@@ -39,7 +40,8 @@ class Settings:
         
         # LLM Configuration (OpenRouter)
         self.openrouter_api_key: str = _get_env("OPENROUTER_API_KEY", "")
-        self.openrouter_base_url: str = _get_env("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        # Fall back to default when env var is present but empty (e.g. OPENROUTER_BASE_URL=)
+        self.openrouter_base_url: str = _get_env("OPENROUTER_BASE_URL", "") or "https://openrouter.ai/api/v1"
         self.llm_provider: str = _get_env("LLM_PROVIDER", "openrouter")
         self.llm_model: str = _get_env("LLM_MODEL", "deepseek/deepseek-v3.2")
         

@@ -174,17 +174,17 @@ Build a production-ready foundation:
   - invalid URL returns a structured error
   - subtitles missing returns a structured “no subtitles” error
 
-#### Sprint P2.2 — React Frontend (Form + Loading + Output/Error)
+#### Sprint P2.2 — React Frontend (Form + Loading + Output/Error) ✅
 **Tasks**
-- [ ] Build React page/component:
+- [x] Build React page/component:
   - URL input field
   - Submit button
   - Loading indicator while waiting
   - Summary display component
   - Error banner component for structured errors
-- [ ] Integrate with backend:
+- [x] Integrate with backend:
   - `fetch`/`axios` to `POST /api/summarize`
-- [ ] Handle UX edge cases:
+- [x] Handle UX edge cases:
   - disable submit while loading
   - clear previous errors on new submit
   - show user-friendly error messages

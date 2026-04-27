@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0207  
 **Sprint:** P2.2 — React Frontend (Form + Loading + Output/Error)  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -17,13 +17,14 @@ Build React component with URL input field and submit button:
 
 ## Acceptance Criteria
 
-- [ ] Input field accepts text
-- [ ] Submit button triggers API call
-- [ ] Input cleared after successful submit
+- [x] Input field accepts text
+- [x] Submit button triggers API call
+- [x] Input cleared after successful submit
 
 ---
 
 ## Deliverables
 
-- Component: `src/components/SummarizeForm.tsx`
-- Location: `frontend/` directory (to be created)
+- Component: [frontend/src/components/SummarizeForm.tsx](../../frontend/src/components/SummarizeForm.tsx)
+- Tests: [frontend/src/components/SummarizeForm.test.tsx](../../frontend/src/components/SummarizeForm.test.tsx)
+- Location: [frontend/](../../frontend/) (Vite + React + TypeScript)

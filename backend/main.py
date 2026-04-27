@@ -98,10 +98,14 @@ async def summarize_video(request: SummarizeRequest):
     from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
     
     start_time = time.time()
-    
+    print(f"\n{'='*60}")
+    print(f"▶  POST /api/summarize")
+    print(f"   URL: {request.url}")
+
     # Step 1: Validate URL and extract video ID (TSK-0202)
     video_id = extract_video_id(request.url)
     if not video_id:
+        print(f"   ❌ Invalid URL — could not extract video ID")
         raise HTTPException(
             status_code=400,
             detail={
@@ -114,11 +118,14 @@ async def summarize_video(request: SummarizeRequest):
                 ]
             }
         )
-    
+    print(f"   Video ID: {video_id}")
+
     # Step 2: Fetch video metadata (TSK-0203 - metadata needed for context)
+    print(f"\n1. Fetching metadata...")
     try:
         metadata = fetch_video_metadata(video_id)
     except Exception as e:
+        print(f"   ❌ Metadata fetch failed: {e}")
         raise HTTPException(
             status_code=400,
             detail={
@@ -127,11 +134,16 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    
+    print(f"   ✓ Title:    {metadata.get('title', 'Unknown')}")
+    print(f"   ✓ Channel:  {metadata.get('channel', 'Unknown')}")
+    print(f"   ✓ Duration: {metadata.get('duration', 0)}s  Views: {metadata.get('view_count', 0):,}")
+
     # Step 3: Fetch transcript (TSK-0203)
+    print(f"\n2. Fetching transcript...")
     try:
         transcript_data = fetch_transcript(video_id, language=request.language or "en")
     except TranscriptsDisabled:
+        print(f"   ❌ Transcripts disabled for video {video_id}")
         raise HTTPException(
             status_code=422,
             detail={
@@ -141,6 +153,7 @@ async def summarize_video(request: SummarizeRequest):
             }
         )
     except NoTranscriptFound:
+        print(f"   ❌ No subtitles available for video {video_id}")
         raise HTTPException(
             status_code=422,
             detail={
@@ -151,6 +164,7 @@ async def summarize_video(request: SummarizeRequest):
             }
         )
     except Exception as e:
+        print(f"   ❌ Transcript fetch error: {e}")
         raise HTTPException(
             status_code=500,
             detail={
@@ -159,16 +173,22 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    
+    print(f"   ✓ Language: {transcript_data.get('language', 'Unknown')} ({transcript_data.get('language_code', '?')})"
+          f"  auto-generated={transcript_data.get('is_generated', False)}")
+
     # Step 4: Calculate transcript stats (TSK-0205 - token truncation)
     transcript_text = transcript_data.get('total_text', '')
     word_count = len(transcript_text.split())
     char_count = len(transcript_text)
-    
+    print(f"   ✓ Snippets: {transcript_data.get('snippet_count', 0)}  "
+          f"Words: {word_count:,}  Chars: {char_count:,}")
+
     # Step 5: Call LLM summarization (TSK-0204)
+    print(f"\n3. Calling LLM ({settings.llm_model})...")
     try:
         summary, llm_stats = call_llm_summarize(transcript_text, metadata)
     except Exception as e:
+        print(f"   ❌ LLM call raised exception: {e}")
         raise HTTPException(
             status_code=500,
             detail={
@@ -177,20 +197,30 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    
+
     if not summary:
+        err = llm_stats.get("error", "Summarization failed")
+        print(f"   ❌ LLM returned no summary: {err}")
         raise HTTPException(
             status_code=500,
             detail={
-                "error": llm_stats.get("error", "Summarization failed"),
+                "error": err,
                 "error_code": llm_stats.get("error_code", "LLM_API_ERROR"),
                 "video_id": video_id
             }
         )
-    
+    print(f"   ✓ Model:    {llm_stats.get('model', settings.llm_model)}")
+    print(f"   ✓ Tokens:   {llm_stats.get('total_tokens', 0):,} "
+          f"(in: {llm_stats.get('input_tokens', 0):,} / out: {llm_stats.get('output_tokens', 0):,})")
+    print(f"   ✓ Cost:     {llm_stats.get('estimated_cost_usd', '$?')}  "
+          f"API time: {llm_stats.get('api_time', 0):.1f}s")
+
     # Calculate processing time
     processing_time = time.time() - start_time
-    
+
+    print(f"\n✅ Done in {processing_time:.1f}s")
+    print(f"{'='*60}\n")
+
     # Step 6: Build response (TSK-0206)
     from .models import VideoMetadata, TranscriptData, LLMStats
     

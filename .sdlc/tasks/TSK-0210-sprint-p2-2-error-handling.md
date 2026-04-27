@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0210  
 **Sprint:** P2.2 — React Frontend (Form + Loading + Output/Error)  
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -19,14 +19,14 @@ Error banner for structured errors:
 
 ## Acceptance Criteria
 
-- [ ] Display error message from API response
-- [ ] User-friendly messages (not raw HTTP codes)
-- [ ] Clear error banner/styling
-- [ ] Error clears on new submit
+- [x] Display error message from API response
+- [x] User-friendly messages (not raw HTTP codes) — `INVALID_URL`, `NO_SUBTITLES_AVAILABLE`, `TRANSCRIPTS_DISABLED`, `VIDEO_NOT_FOUND`, `LLM_*`, `NETWORK_ERROR`
+- [x] Clear error banner/styling (`role="alert"`)
+- [x] Error clears on new submit (handled in `SummarizeForm`)
 
 ---
 
 ## Deliverables
 
-- Component: `src/components/ErrorBanner.tsx`
-- Maps backend error codes to UI messages
+- Component: [frontend/src/components/ErrorBanner.tsx](../../frontend/src/components/ErrorBanner.tsx)
+- Tests: [frontend/src/components/ErrorBanner.test.tsx](../../frontend/src/components/ErrorBanner.test.tsx)
