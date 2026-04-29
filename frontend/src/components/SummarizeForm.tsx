@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { summarizeUrl } from "../api";
-import type { ApiError, SummarizeResponse } from "../types";
+import type { ApiError, SummarizeResponse, LanguageCode } from "../types";
+import { SUPPORTED_LANGUAGES } from "../types";
 
 interface SummarizeFormProps {
   onResult: (result: SummarizeResponse | null) => void;
@@ -9,6 +10,7 @@ interface SummarizeFormProps {
 
 export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
   const [url, setUrl] = useState("");
+  const [summaryLanguage, setSummaryLanguage] = useState<LanguageCode>("en");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -31,7 +33,7 @@ export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
 
     setLoading(true);
     try {
-      const result = await summarizeUrl(trimmed);
+      const result = await summarizeUrl(trimmed, summaryLanguage);
       onResult(result);
       setUrl("");
     } catch (err) {
@@ -54,6 +56,20 @@ export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
         disabled={loading}
         autoComplete="off"
       />
+      <label htmlFor="summary-language">Summary Language</label>
+      <select
+        id="summary-language"
+        name="summary_language"
+        value={summaryLanguage}
+        onChange={(e) => setSummaryLanguage(e.target.value as LanguageCode)}
+        disabled={loading}
+      >
+        {SUPPORTED_LANGUAGES.map((lang) => (
+          <option key={lang.code} value={lang.code}>
+            {lang.name}
+          </option>
+        ))}
+      </select>
       <button type="submit" disabled={loading}>
         {loading ? "Summarizing…" : "Summarize"}
       </button>

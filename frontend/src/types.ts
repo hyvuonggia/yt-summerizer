@@ -3,6 +3,21 @@
  * Source of truth: backend/models.py
  */
 
+// Supported languages for summary output (alphabetical by name)
+export const SUPPORTED_LANGUAGES = [
+  { code: "zh", name: "Chinese" },
+  { code: "en", name: "English" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "pt", name: "Portuguese" },
+  { code: "es", name: "Spanish" },
+  { code: "vi", name: "Vietnamese" },
+] as const;
+
+export type LanguageCode = typeof SUPPORTED_LANGUAGES[number]["code"];
+
 export interface VideoMetadata {
   video_id: string;
   title: string;

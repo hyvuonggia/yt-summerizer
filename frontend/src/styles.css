@@ -48,6 +48,14 @@ body {
   font: inherit;
 }
 
+.summarize-form select {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #cfd0d4;
+  font: inherit;
+  background: white;
+}
+
 .summarize-form button {
   padding: 0.6rem 1rem;
   border-radius: 6px;
@@ -115,6 +123,40 @@ body {
 
 .summary-body p {
   line-height: 1.65;
+  margin: 0 0 0.75rem;
+}
+
+.summary-body p:last-child {
+  margin-bottom: 0;
+}
+
+.summary-body h1,
+.summary-body h2,
+.summary-body h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.summary-body h1:first-child,
+.summary-body h2:first-child,
+.summary-body h3:first-child {
+  margin-top: 0;
+}
+
+.summary-body ul,
+.summary-body ol {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.summary-body li {
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.summary-body strong {
+  font-weight: 600;
 }
 
 .summary-list {

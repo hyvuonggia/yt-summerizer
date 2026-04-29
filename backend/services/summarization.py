@@ -6,11 +6,13 @@ This module handles:
 - Prompt engineering for YouTube summarization
 - Error handling and retry logic
 - Cost estimation
+- Progress reporting during long-running operations
 """
 
 import os
 import time
 import threading
+import logging
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
@@ -19,6 +21,9 @@ from openai.types.chat import ChatCompletion
 
 from ..config import settings
 from .token_counter import count_tokens, truncate_text_to_tokens
+
+# Configure logger for this module
+logger = logging.getLogger("backend.summarization")
 
 
 def initialize_openrouter_client() -> OpenAI:
@@ -48,7 +53,8 @@ def initialize_openrouter_client() -> OpenAI:
 
 def create_summarization_prompt(
     transcript_text: str, 
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any],
+    summary_language: str = "en"
 ) -> List[Dict[str, str]]:
     """
     Create system and user prompts for YouTube summarization.
@@ -56,12 +62,22 @@ def create_summarization_prompt(
     Args:
         transcript_text: Full transcript text
         metadata: Video metadata
+        summary_language: Language for the summary output (ISO 639-1 code)
         
     Returns:
         List of message dictionaries for OpenAI API
     """
+    # Map language codes to display names
+    language_names = {
+        "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+        "it": "Italian", "pt": "Portuguese", "ru": "Russian", "zh": "Chinese",
+        "ja": "Japanese", "ko": "Korean", "vi": "Vietnamese", "ar": "Arabic",
+        "hi": "Hindi", "nl": "Dutch", "pl": "Polish", "tr": "Turkish"
+    }
+    lang_name = language_names.get(summary_language, summary_language.upper())
+    
     # System prompt for YouTube summarization
-    system_prompt = """You are an expert YouTube video summarizer. Your task is to create concise, informative summaries of video transcripts.
+    system_prompt = f"""You are an expert YouTube video summarizer. Your task is to create concise, informative summaries of video transcripts.
 
 Follow these guidelines:
 1. Extract the main topic and purpose of the video
@@ -71,6 +87,7 @@ Follow these guidelines:
 5. Keep the summary under 300 words
 6. Use clear, accessible language
 7. Maintain a neutral, informative tone
+8. ALWAYS write the summary in {lang_name}
 
 Format your response as:
 **Main Topic**: [1-2 sentence summary]
@@ -121,7 +138,8 @@ def call_llm_summarize(
     transcript_text: str,
     metadata: Dict[str, Any],
     max_input_tokens: Optional[int] = None,
-    max_output_tokens: Optional[int] = None
+    max_output_tokens: Optional[int] = None,
+    summary_language: str = "en"
 ) -> Tuple[Optional[str], Dict[str, Any]]:
     """
     Call LLM to summarize transcript using OpenRouter.
@@ -131,6 +149,7 @@ def call_llm_summarize(
         metadata: Video metadata
         max_input_tokens: Maximum input tokens (default: from settings)
         max_output_tokens: Maximum output tokens (default: from settings)
+        summary_language: Language for summary output (ISO 639-1 code)
         
     Returns:
         Tuple of (summary_text, stats_dict)
@@ -154,14 +173,14 @@ def call_llm_summarize(
     # Reserve tokens for prompts and metadata (estimate ~500 tokens)
     available_tokens = max_input_tokens - 500
     if transcript_tokens > available_tokens:
-        print(f"   ⚠️  Transcript exceeds token limit ({transcript_tokens:,} > {available_tokens:,})")
-        print(f"   • Truncating transcript to {available_tokens:,} tokens...")
+        logger.info(f"Transcript exceeds token limit ({transcript_tokens:,} > {available_tokens:,})")
+        logger.info(f"Truncating transcript to {available_tokens:,} tokens")
         transcript_text = truncate_text_to_tokens(transcript_text, available_tokens)
         transcript_tokens = count_tokens(transcript_text)
-        print(f"   • Truncated to {transcript_tokens:,} tokens")
+        logger.info(f"Transcript truncated to {transcript_tokens:,} tokens")
     
     # Create prompts
-    messages = create_summarization_prompt(transcript_text, metadata)
+    messages = create_summarization_prompt(transcript_text, metadata, summary_language)
     
     # Count total tokens for the request
     prompt_tokens = sum(count_tokens(msg["content"]) for msg in messages)
@@ -196,6 +215,10 @@ def call_llm_summarize(
             
             # Extract summary
             summary = response.choices[0].message.content
+            
+            # Log progress
+            logger.info(f"LLM response received - {response.usage.total_tokens:,} total tokens, "
+                        f"{response.usage.completion_tokens:,} output tokens")
             
             # Calculate estimated cost (approximate)
             # DeepSeek v3.2 pricing: $0.14 per 1M input tokens, $0.28 per 1M output tokens
@@ -235,8 +258,8 @@ def call_llm_summarize(
                     break
             
             if is_retryable and attempt < max_retries - 1:
-                print(f"   ⚠️  {error_type}: {e}")
-                print(f"   • Retrying in {retry_delay} seconds...")
+                logger.warning(f"Retryable error: {error_type}: {e}")
+                logger.info(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
             else:

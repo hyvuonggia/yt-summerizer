@@ -8,6 +8,10 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, HttpUrl
 
 
+# Supported summary languages (must match frontend/src/types.ts SUPPORTED_LANGUAGES, alphabetical by name)
+SUPPORTED_SUMMARY_LANGUAGES = ["zh", "en", "fr", "de", "ja", "ko", "pt", "es", "vi"]
+
+
 class SummarizeRequest(BaseModel):
     """Request model for the summarize endpoint."""
     
@@ -22,6 +26,12 @@ class SummarizeRequest(BaseModel):
         default="en",
         description="Preferred transcript language (ISO 639-1 code)",
         examples=["en", "es", "fr"]
+    )
+    
+    summary_language: Optional[str] = Field(
+        default="en",
+        description="Desired language for summary output (ISO 639-1 code)",
+        examples=["en", "es", "fr", "de", "vi", "zh"]
     )
     
     summary_length: Optional[str] = Field(

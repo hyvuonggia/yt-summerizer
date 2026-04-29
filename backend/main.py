@@ -195,10 +195,16 @@ async def summarize_video(request: SummarizeRequest):
     logger.info(f"Transcript stats - Words: {word_count:,}, Characters: {char_count:,}")
 
     # Step 5: Call LLM summarization (TSK-0204)
-    logger.info(f"Calling LLM ({settings.llm_model}) for video: {video_id}")
+    # Get summary language from request, validate and default to English
+    from ..models import SUPPORTED_SUMMARY_LANGUAGES
+    summary_lang = request.summary_language or "en"
+    if summary_lang not in SUPPORTED_SUMMARY_LANGUAGES:
+        logger.warning(f"Unsupported summary_language '{summary_lang}', defaulting to 'en'")
+        summary_lang = "en"
+    logger.info(f"Calling LLM ({settings.llm_model}) for video: {video_id} - Summary language: {summary_lang}")
     llm_start = time.time()
     try:
-        summary, llm_stats = call_llm_summarize(transcript_text, metadata)
+        summary, llm_stats = call_llm_summarize(transcript_text, metadata, summary_language=summary_lang)
     except Exception as e:
         logger.error(f"LLM call failed for video {video_id}: {e}")
         raise HTTPException(

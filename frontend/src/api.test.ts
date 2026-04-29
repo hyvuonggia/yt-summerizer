@@ -39,7 +39,7 @@ describe("summarizeUrl", () => {
     expect(url).toMatch(/\/api\/summarize$/);
     expect(init.method).toBe("POST");
     expect(init.headers["Content-Type"]).toBe("application/json");
-    expect(JSON.parse(init.body)).toEqual({ url: "https://youtu.be/abc123" });
+    expect(JSON.parse(init.body)).toEqual({ url: "https://youtu.be/abc123", summary_language: "en" });
     expect(result).toEqual(payload);
   });
 

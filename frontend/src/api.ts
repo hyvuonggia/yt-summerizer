@@ -1,4 +1,4 @@
-import type { ApiError, SummarizeResponse } from "./types";
+import type { ApiError, SummarizeResponse, LanguageCode } from "./types";
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
@@ -8,13 +8,13 @@ const API_BASE_URL =
  * Call the backend POST /api/summarize endpoint.
  * Throws an ApiError on non-2xx responses or network failures.
  */
-export async function summarizeUrl(url: string): Promise<SummarizeResponse> {
+export async function summarizeUrl(url: string, summaryLanguage: LanguageCode = "en"): Promise<SummarizeResponse> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}/api/summarize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, summary_language: summaryLanguage }),
     });
   } catch (err) {
     const apiError: ApiError = {

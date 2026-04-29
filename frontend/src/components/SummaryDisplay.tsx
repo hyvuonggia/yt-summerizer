@@ -1,29 +1,12 @@
+import Markdown from "react-markdown";
 import type { SummarizeResponse } from "../types";
 
 interface SummaryDisplayProps {
   result: SummarizeResponse | null;
 }
 
-function renderSummary(summary: string) {
-  // Split on blank lines into paragraphs; preserve bullet-like lines.
-  return summary
-    .split(/\n\s*\n/)
-    .map((para) => para.trim())
-    .filter(Boolean)
-    .map((para, i) => {
-      const lines = para.split("\n");
-      const isBulletList = lines.every((l) => /^\s*[-*•]\s+/.test(l));
-      if (isBulletList) {
-        return (
-          <ul key={i} className="summary-list">
-            {lines.map((l, j) => (
-              <li key={j}>{l.replace(/^\s*[-*•]\s+/, "")}</li>
-            ))}
-          </ul>
-        );
-      }
-      return <p key={i}>{para}</p>;
-    });
+function renderSummaryWithMarkdown(summary: string) {
+  return <Markdown>{summary}</Markdown>;
 }
 
 export function SummaryDisplay({ result }: SummaryDisplayProps) {
@@ -37,7 +20,7 @@ export function SummaryDisplay({ result }: SummaryDisplayProps) {
         <p className="channel">{metadata.channel}</p>
       </header>
 
-      <div className="summary-body">{renderSummary(summary)}</div>
+      <div className="summary-body">{renderSummaryWithMarkdown(summary)}</div>
 
       <footer className="summary-stats">
         <dl>

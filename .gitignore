@@ -174,3 +174,6 @@ cython_debug/
 
 # Task management files
 .tmp/tasks/
+
+# Git worktrees
+.worktrees/
