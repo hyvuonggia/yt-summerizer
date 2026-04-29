@@ -196,7 +196,7 @@ async def summarize_video(request: SummarizeRequest):
 
     # Step 5: Call LLM summarization (TSK-0204)
     # Get summary language from request, validate and default to English
-    from ..models import SUPPORTED_SUMMARY_LANGUAGES
+    from .models import SUPPORTED_SUMMARY_LANGUAGES
     summary_lang = request.summary_language or "en"
     if summary_lang not in SUPPORTED_SUMMARY_LANGUAGES:
         logger.warning(f"Unsupported summary_language '{summary_lang}', defaulting to 'en'")
