@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0215  
 **Sprint:** P2.3 — CORS/API Setup + Basic Operational Hardening  
-**Status:** pending
+**Status:** completed
 
 ---
 

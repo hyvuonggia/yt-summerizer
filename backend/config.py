@@ -5,8 +5,12 @@ Loads environment variables and provides typed settings for the application.
 """
 
 import os
+import logging
 from typing import List
 from dotenv import load_dotenv
+
+# Configure logging for config module
+config_logger = logging.getLogger("backend.config")
 
 # Load .env file if it exists.
 # override=True ensures .env values always take precedence over shell env vars.
@@ -81,5 +85,5 @@ def validate_settings():
 try:
     validate_settings()
 except ValueError as e:
-    print(f"⚠️  Configuration warning: {e}")
-    print("   Some features may not work without proper configuration.")
+    config_logger.warning(f"Configuration warning: {e}")
+    config_logger.warning("Some features may not work without proper configuration.")

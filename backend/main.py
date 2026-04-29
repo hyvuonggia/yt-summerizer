@@ -6,9 +6,12 @@ This is the main entry point for the FastAPI backend application.
 It sets up the API server with CORS, routes, and middleware.
 
 Sprint P2.1: Backend API Skeleton + Core Summarize Endpoint
+Sprint P2.3: CORS/API Setup + Basic Operational Hardening
 """
 
 import os
+import logging
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -20,21 +23,29 @@ from .services.metadata import fetch_video_metadata
 from .services.summarization import call_llm_summarize
 from .services.token_counter import count_tokens, truncate_text_to_tokens
 
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("backend")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
     # Startup
-    print(f"🚀 Starting YouTube Video Summarizer Backend")
-    print(f"   Environment: {settings.environment}")
-    print(f"   LLM Provider: {settings.llm_provider}")
-    print(f"   LLM Model: {settings.llm_model}")
-    print(f"   CORS Origins: {settings.cors_origins}")
+    logger.info("Starting YouTube Video Summarizer Backend")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"LLM Provider: {settings.llm_provider}")
+    logger.info(f"LLM Model: {settings.llm_model}")
+    logger.info(f"CORS Origins: {settings.cors_origins}")
     
     yield
     
     # Shutdown
-    print("👋 Shutting down YouTube Video Summarizer Backend")
+    logger.info("Shutting down YouTube Video Summarizer Backend")
 
 
 # Create FastAPI app with lifespan
@@ -72,9 +83,10 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring."""
+    from datetime import datetime
     return {
         "status": "healthy",
-        "timestamp": "TODO: Add timestamp",
+        "timestamp": datetime.now().isoformat(),
         "environment": settings.environment,
     }
 
@@ -94,18 +106,17 @@ async def summarize_video(request: SummarizeRequest):
     Returns 400 for invalid URLs, 422 for missing subtitles.
     """
     import time
-    from datetime import datetime
     from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
     
     start_time = time.time()
-    print(f"\n{'='*60}")
-    print(f"▶  POST /api/summarize")
-    print(f"   URL: {request.url}")
+    request_start = datetime.now().isoformat()
+    
+    logger.info(f"Request started: POST /api/summarize - URL: {request.url}")
 
     # Step 1: Validate URL and extract video ID (TSK-0202)
     video_id = extract_video_id(request.url)
     if not video_id:
-        print(f"   ❌ Invalid URL — could not extract video ID")
+        logger.warning(f"Invalid URL - could not extract video ID: {request.url}")
         raise HTTPException(
             status_code=400,
             detail={
@@ -118,14 +129,14 @@ async def summarize_video(request: SummarizeRequest):
                 ]
             }
         )
-    print(f"   Video ID: {video_id}")
+    logger.info(f"Video ID extracted: {video_id}")
 
     # Step 2: Fetch video metadata (TSK-0203 - metadata needed for context)
-    print(f"\n1. Fetching metadata...")
+    logger.info(f"Fetching metadata for video: {video_id}")
     try:
         metadata = fetch_video_metadata(video_id)
     except Exception as e:
-        print(f"   ❌ Metadata fetch failed: {e}")
+        logger.error(f"Metadata fetch failed for video {video_id}: {e}")
         raise HTTPException(
             status_code=400,
             detail={
@@ -134,16 +145,14 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    print(f"   ✓ Title:    {metadata.get('title', 'Unknown')}")
-    print(f"   ✓ Channel:  {metadata.get('channel', 'Unknown')}")
-    print(f"   ✓ Duration: {metadata.get('duration', 0)}s  Views: {metadata.get('view_count', 0):,}")
+    logger.info(f"Metadata fetched - Title: {metadata.get('title', 'Unknown')}, Channel: {metadata.get('channel', 'Unknown')}")
 
     # Step 3: Fetch transcript (TSK-0203)
-    print(f"\n2. Fetching transcript...")
+    logger.info(f"Fetching transcript for video: {video_id}")
     try:
         transcript_data = fetch_transcript(video_id, language=request.language or "en")
     except TranscriptsDisabled:
-        print(f"   ❌ Transcripts disabled for video {video_id}")
+        logger.warning(f"Transcripts disabled for video: {video_id}")
         raise HTTPException(
             status_code=422,
             detail={
@@ -153,7 +162,7 @@ async def summarize_video(request: SummarizeRequest):
             }
         )
     except NoTranscriptFound:
-        print(f"   ❌ No subtitles available for video {video_id}")
+        logger.warning(f"No subtitles available for video: {video_id}")
         raise HTTPException(
             status_code=422,
             detail={
@@ -164,7 +173,7 @@ async def summarize_video(request: SummarizeRequest):
             }
         )
     except Exception as e:
-        print(f"   ❌ Transcript fetch error: {e}")
+        logger.error(f"Transcript fetch error for video {video_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail={
@@ -173,22 +182,25 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    print(f"   ✓ Language: {transcript_data.get('language', 'Unknown')} ({transcript_data.get('language_code', '?')})"
-          f"  auto-generated={transcript_data.get('is_generated', False)}")
+    
+    # Log transcript outcome (NOT the content)
+    logger.info(f"Transcript fetched - Language: {transcript_data.get('language', 'Unknown')} ({transcript_data.get('language_code', '?')}), "
+                f"Auto-generated: {transcript_data.get('is_generated', False)}, "
+                f"Snippets: {transcript_data.get('snippet_count', 0)}")
 
     # Step 4: Calculate transcript stats (TSK-0205 - token truncation)
     transcript_text = transcript_data.get('total_text', '')
     word_count = len(transcript_text.split())
     char_count = len(transcript_text)
-    print(f"   ✓ Snippets: {transcript_data.get('snippet_count', 0)}  "
-          f"Words: {word_count:,}  Chars: {char_count:,}")
+    logger.info(f"Transcript stats - Words: {word_count:,}, Characters: {char_count:,}")
 
     # Step 5: Call LLM summarization (TSK-0204)
-    print(f"\n3. Calling LLM ({settings.llm_model})...")
+    logger.info(f"Calling LLM ({settings.llm_model}) for video: {video_id}")
+    llm_start = time.time()
     try:
         summary, llm_stats = call_llm_summarize(transcript_text, metadata)
     except Exception as e:
-        print(f"   ❌ LLM call raised exception: {e}")
+        logger.error(f"LLM call failed for video {video_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail={
@@ -200,7 +212,7 @@ async def summarize_video(request: SummarizeRequest):
 
     if not summary:
         err = llm_stats.get("error", "Summarization failed")
-        print(f"   ❌ LLM returned no summary: {err}")
+        logger.error(f"LLM returned no summary for video {video_id}: {err}")
         raise HTTPException(
             status_code=500,
             detail={
@@ -209,17 +221,20 @@ async def summarize_video(request: SummarizeRequest):
                 "video_id": video_id
             }
         )
-    print(f"   ✓ Model:    {llm_stats.get('model', settings.llm_model)}")
-    print(f"   ✓ Tokens:   {llm_stats.get('total_tokens', 0):,} "
-          f"(in: {llm_stats.get('input_tokens', 0):,} / out: {llm_stats.get('output_tokens', 0):,})")
-    print(f"   ✓ Cost:     {llm_stats.get('estimated_cost_usd', '$?')}  "
-          f"API time: {llm_stats.get('api_time', 0):.1f}s")
+    
+    # Log LLM latency and stats (NOT the summary content)
+    llm_latency = time.time() - llm_start
+    logger.info(f"LLM response - Model: {llm_stats.get('model', settings.llm_model)}, "
+                f"Tokens: {llm_stats.get('total_tokens', 0):,} "
+                f"(in: {llm_stats.get('input_tokens', 0):,} / out: {llm_stats.get('output_tokens', 0):,}), "
+                f"Cost: {llm_stats.get('estimated_cost_usd', '$?')}, "
+                f"Latency: {llm_latency:.1f}s")
 
     # Calculate processing time
     processing_time = time.time() - start_time
-
-    print(f"\n✅ Done in {processing_time:.1f}s")
-    print(f"{'='*60}\n")
+    request_end = datetime.now().isoformat()
+    
+    logger.info(f"Request completed - Video: {video_id}, Processing time: {processing_time:.1f}s")
 
     # Step 6: Build response (TSK-0206)
     from .models import VideoMetadata, TranscriptData, LLMStats
@@ -273,14 +288,14 @@ async def summarize_video(request: SummarizeRequest):
         transcript_stats=transcript_stats_model,
         llm_stats=llm_stats_model,
         processing_time=processing_time,
-        timestamp=datetime.now().isoformat()
+        timestamp=request_end
     )
 
 
 if __name__ == "__main__":
     import uvicorn
     
-    print("Starting development server...")
+    logger.info("Starting development server...")
     uvicorn.run(
         "backend.main:app",
         host="0.0.0.0",
