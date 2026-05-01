@@ -200,11 +200,24 @@ export async function deleteHistoryItem(summaryId: number): Promise<void> {
  * Throws an ApiError on non-2xx responses or network failures.
  */
 export async function summarizeUrl(url: string, summaryLanguage: LanguageCode = "en"): Promise<SummarizeResponse> {
+  const token = getStoredToken();
+  if (!token) {
+    const apiError: ApiError = {
+      code: "NOT_AUTHENTICATED",
+      message: "Not authenticated",
+      status: 401,
+    };
+    throw apiError;
+  }
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}/api/summarize`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ url, summary_language: summaryLanguage }),
     });
   } catch (err) {
