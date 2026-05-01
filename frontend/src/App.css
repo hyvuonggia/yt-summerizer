@@ -1,0 +1,12 @@
+/* App-level component styles */
+
+/* Section spacing */
+.auth-section,
+.history-section {
+  margin-bottom: 1.5rem;
+}
+
+/* Ensure the app container is full height */
+#root {
+  min-height: 100vh;
+}

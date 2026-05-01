@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0302  
 **Sprint:** P3.1 — Authentication (Login/Session) + Protected History API  
-**Status:** pending
+**Status:** ✅ done
 
 ---
 
@@ -17,9 +17,9 @@ Add auth-protected endpoints:
 
 ## Acceptance Criteria
 
-- [ ] Unauthenticated returns 401/403
-- [ ] Authenticated accesses data
-- [ ] User ID associated with requests
+- [x] Unauthenticated returns 401/403
+- [x] Authenticated accesses data
+- [x] User ID associated with requests
 
 ---
 
@@ -27,3 +27,10 @@ Add auth-protected endpoints:
 
 - Protected endpoints in backend
 - Auth dependency (FastAPI Depends)
+
+---
+
+## Execution Log
+- *[2026-05-01 20:25]* Protected endpoints implemented - /api/history, /api/history/:id delete
+- *[2026-05-01 20:25]* Auth dependency added - get_current_user
+- *[2026-05-01 20:25]* Tested and verified working

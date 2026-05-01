@@ -31,6 +31,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("backend")
 
+# Auth imports
+from .models import UserCreate, UserLogin, Token
+from .services.auth import (
+    register_user, 
+    authenticate_user, 
+    generate_token_response,
+    decode_token,
+    is_token_expired,
+    history_store
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -65,6 +76,175 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================
+# Auth Dependency
+# ============================================
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
+
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """
+    Dependency to get the current authenticated user.
+    
+    Validates JWT token and returns user data.
+    
+    Raises:
+        HTTPException: 401 if not authenticated
+    """
+    token = credentials.credentials
+    
+    if is_token_expired(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Token expired", "error_code": "TOKEN_EXPIRED"}
+        )
+    
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Invalid token", "error_code": "INVALID_TOKEN"}
+        )
+    
+    return payload
+
+
+def optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> Optional[dict]:
+    """
+    Optional auth dependency - returns user if valid token, None otherwise.
+    """
+    if not credentials:
+        return None
+    
+    token = credentials.credentials
+    
+    if is_token_expired(token):
+        return None
+    
+    return decode_token(token)
+
+
+# ============================================
+# Authentication Endpoints (TSK-0301)
+# ============================================
+
+@app.post("/api/auth/register", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def register(request: UserCreate):
+    """
+    Register a new user.
+    
+    Creates a new user account and returns authentication token.
+    
+    Returns 400 if user already exists.
+    """
+    logger.info(f"Registration request: {request.email}")
+    
+    try:
+        user = register_user(request.email, request.password, request.username)
+        token_response = generate_token_response(user["email"], user["id"])
+        
+        logger.info(f"User registered: {request.email}")
+        
+        return {
+            "success": True,
+            "user": user,
+            "token": token_response
+        }
+    except ValueError as e:
+        logger.warning(f"Registration failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": str(e), "error_code": "USER_EXISTS"}
+        )
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(request: UserLogin):
+    """
+    Login with email and password.
+    
+    Returns JWT access token on successful authentication.
+    
+    Returns 401 if invalid credentials.
+    """
+    logger.info(f"Login request: {request.email}")
+    
+    user = authenticate_user(request.email, request.password)
+    
+    if not user:
+        logger.warning(f"Login failed for: {request.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Invalid credentials", "error_code": "INVALID_CREDENTIALS"}
+        )
+    
+    logger.info(f"User logged in: {request.email}")
+    
+    return generate_token_response(user["email"], user["id"])
+
+
+# ============================================
+# Protected Endpoints (TSK-0302)
+# ============================================
+
+from .models import HistoryList, SummaryHistoryItem
+from .services.auth import history_store
+
+
+@app.get("/api/history", response_model=HistoryList)
+async def get_history(current_user: dict = Depends(get_current_user)):
+    """
+    Get user's summary history.
+    
+    Requires authentication. Returns the most recent summaries.
+    
+    Returns 401 if not authenticated.
+    """
+    user_id = current_user.get("user_id")
+    limit = 50  # Default limit
+    
+    history_items = history_store.get_user_history(user_id, limit)
+    
+    logger.info(f"History requested for user: {current_user.get('sub')}")
+    
+    return HistoryList(
+        items=[SummaryHistoryItem(**item) for item in history_items],
+        total=len(history_items)
+    )
+
+
+@app.delete("/api/history/{summary_id}")
+async def delete_history(summary_id: int, current_user: dict = Depends(get_current_user)):
+    """
+    Delete a summary from user's history.
+    
+    Requires authentication.
+    
+    Returns 401 if not authenticated, 404 if not found.
+    """
+    user_id = current_user.get("user_id")
+    
+    success = history_store.delete_summary(user_id, summary_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Summary not found", "error_code": "NOT_FOUND"}
+        )
+    
+    logger.info(f"Summary {summary_id} deleted by user: {current_user.get('sub')}")
+    
+    return {"success": True, "message": f"Summary {summary_id} deleted"}
+
 
 @app.get("/")
 async def root():
@@ -92,26 +272,32 @@ async def health_check():
 
 
 @app.post("/api/summarize", response_model=SummarizeResponse)
-async def summarize_video(request: SummarizeRequest):
+async def summarize_video(
+    request: SummarizeRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Summarize a YouTube video.
+    
+    Requires authentication.
     
     This endpoint:
     1. Validates the YouTube URL and extracts video ID
     2. Fetches video metadata (title, channel, etc.)
     3. Retrieves the transcript (subtitles)
     4. Calls LLM to generate a summary
-    5. Returns structured summary response
+    5. Saves to user history and returns structured summary
     
-    Returns 400 for invalid URLs, 422 for missing subtitles.
+    Returns 400 for invalid URLs, 422 for missing subtitles, 401 if not authenticated.
     """
     import time
     from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
     
     start_time = time.time()
     request_start = datetime.now().isoformat()
+    user_id = current_user.get("user_id")
     
-    logger.info(f"Request started: POST /api/summarize - URL: {request.url}")
+    logger.info(f"Request started: POST /api/summarize - User: {current_user.get('sub')} - URL: {request.url}")
 
     # Step 1: Validate URL and extract video ID (TSK-0202)
     video_id = extract_video_id(request.url)
@@ -286,6 +472,15 @@ async def summarize_video(request: SummarizeRequest):
         api_time=llm_stats.get('api_time', 0.0)
     )
     
+    # Save to user history
+    history_store.add_summary(
+        user_id=user_id,
+        video_id=video_id,
+        video_title=metadata.get('title', 'Unknown'),
+        summary=summary
+    )
+    logger.info(f"Summary saved to history for user {user_id}: video {video_id}")
+    
     return SummarizeResponse(
         success=True,
         summary=summary,
@@ -296,6 +491,11 @@ async def summarize_video(request: SummarizeRequest):
         processing_time=processing_time,
         timestamp=request_end
     )
+
+
+
+# Alias for backwards compatibility
+_protected_summarize = summarize_video
 
 
 if __name__ == "__main__":

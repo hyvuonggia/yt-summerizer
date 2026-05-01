@@ -9,3 +9,8 @@ openai
 # FastAPI stack (used in later phases; harmless for Phase 1 environment readiness)
 fastapi
 uvicorn[standard]
+
+# Authentication (TSK-0301)
+python-jose[cryptography]
+passlib[bcrypt]
+httpx

@@ -2,7 +2,7 @@
 
 **Task ID:** TSK-0301  
 **Sprint:** P3.1 — Authentication (Login/Session) + Protected History API  
-**Status:** pending
+**Status:** ✅ done
 
 ---
 
@@ -17,9 +17,9 @@ Implement authentication mechanism:
 
 ## Acceptance Criteria
 
-- [ ] User can register/login
-- [ ] JWT or session created
-- [ ] Passwords hashed
+- [x] User can register/login
+- [x] JWT or session created
+- [x] Passwords hashed
 
 ---
 
@@ -27,3 +27,9 @@ Implement authentication mechanism:
 
 - Auth service in `backend/services/auth.py`
 - Models: User, Token
+
+---
+
+## Execution Log
+- *[2026-05-01 20:20]* Auth mechanism implemented - JWT tokens, bcrypt password hashing, register/login endpoints
+- *[2026-05-01 20:20]* Tested and verified working
