@@ -174,58 +174,194 @@ def is_token_expired(token: str) -> bool:
 
 
 # ============================================
-# In-Memory User Storage (TSK-0301)
+# Database-Backed User Storage (Sprint P3.2)
 # ============================================
 
-class InMemoryUserStore:
+class DatabaseUserStore:
     """
-    In-memory user storage.
+    Database-backed user storage.
     
-    Note: This is for development/demo purposes. 
-    Database-backed storage will be implemented in P3.2.
+    Uses MySQL database for persistent storage.
+    Password hashing is handled by bcrypt (hash_password function above).
     """
     
-    def __init__(self):
-        self._users: Dict[str, Dict[str, Any]] = {}  # email -> user data
-        self._id_counter: int = 1
-    
-    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Get user by email."""
-        return self._users.get(email.lower())
-    
-    def create_user(self, email: str, username: Optional[str], hashed_password: str) -> Dict[str, Any]:
-        """Create a new user."""
-        user_id = self._id_counter
-        self._id_counter += 1
+    async def get_user_by_email(self, email: str, db) -> Optional[Dict[str, Any]]:
+        """Get user by email from database."""
+        from sqlalchemy import select
+        from ..database import User
         
-        user = {
-            "id": user_id,
-            "email": email.lower(),
-            "username": username or email.split("@")[0],
-            "hashed_password": hashed_password,
-            "created_at": utcnow().isoformat()
+        result = await db.execute(
+            select(User).where(User.email == email.lower())
+        )
+        user = result.scalar_one_or_none()
+        
+        if user:
+            return {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "password": user.password,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            }
+        return None
+    
+    async def create_user(self, email: str, username: Optional[str], hashed_password: str, db) -> Dict[str, Any]:
+        """Create a new user in database."""
+        from ..database import User
+        
+        user = User(
+            email=email.lower(),
+            username=username or email.split("@")[0],
+            password=hashed_password
+        )
+        
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        
+        auth_logger.info(f"User created in database: {email.lower()}")
+        
+        return {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "password": user.password,
+            "created_at": user.created_at.isoformat() if user.created_at else None
         }
-        
-        self._users[email.lower()] = user
-        auth_logger.info(f"User created: {email.lower()}")
-        
-        return user
     
-    def user_exists(self, email: str) -> bool:
-        """Check if user exists."""
-        return email.lower() in self._users
+    async def user_exists(self, email: str, db) -> bool:
+        """Check if user exists in database."""
+        from sqlalchemy import select, func
+        from ..database import User
+        
+        result = await db.execute(
+            select(func.count(User.id)).where(User.email == email.lower())
+        )
+        count = result.scalar()
+        return count > 0
 
 
 # Global user store instance
-user_store = InMemoryUserStore()
+user_store = DatabaseUserStore()
 
 
 # ============================================
-# In-Memory Summary/History Storage
+# Legacy In-Memory User Storage (for fallback)
+# ============================================
+# Database-Backed History Storage (Sprint P3.2)
+# ============================================
+
+class DatabaseHistoryStore:
+    """
+    Database-backed history storage.
+    
+    Persists summaries to MySQL database.
+    """
+    
+    async def add_summary(
+        self,
+        user_id: int,
+        video_id: str,
+        video_title: str,
+        summary: str,
+        db,
+        video_url: Optional[str] = None,
+        video_channel: Optional[str] = None,
+        transcript_language: Optional[str] = None,
+        transcript_word_count: Optional[int] = None,
+        transcript_duration: Optional[int] = None,
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Add a summary to user's history in database."""
+        from ..database import Summary
+        
+        summary_obj = Summary(
+            user_id=user_id,
+            video_id=video_id,
+            video_title=video_title,
+            video_url=video_url,
+            video_channel=video_channel,
+            transcript_language=transcript_language,
+            transcript_word_count=transcript_word_count,
+            transcript_duration=transcript_duration,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            summary_text=summary
+        )
+        
+        db.add(summary_obj)
+        await db.commit()
+        await db.refresh(summary_obj)
+        
+        auth_logger.info(f"Summary saved to database for user {user_id}: video {video_id}")
+        
+        return {
+            "id": summary_obj.id,
+            "video_id": summary_obj.video_id,
+            "video_title": summary_obj.video_title,
+            "summary": summary_obj.summary_text,
+            "created_at": summary_obj.created_at.isoformat() if summary_obj.created_at else None
+        }
+    
+    async def get_user_history(self, user_id: int, limit: int = 50, db=None) -> List[Dict[str, Any]]:
+        """Get user's summary history from database."""
+        from sqlalchemy import select, desc
+        from ..database import Summary
+        
+        result = await db.execute(
+            select(Summary)
+            .where(Summary.user_id == user_id)
+            .order_by(desc(Summary.created_at))
+            .limit(limit)
+        )
+        summaries = result.scalars().all()
+        
+        return [
+            {
+                "id": s.id,
+                "video_id": s.video_id,
+                "video_title": s.video_title,
+                "summary": s.summary_text,
+                "created_at": s.created_at.isoformat() if s.created_at else None
+            }
+            for s in summaries
+        ]
+    
+    async def delete_summary(self, user_id: int, summary_id: int, db) -> bool:
+        """Delete a summary from user's history in database."""
+        from sqlalchemy import select, delete
+        from ..database import Summary
+        
+        # First check if the summary belongs to the user
+        result = await db.execute(
+            select(Summary).where(
+                Summary.id == summary_id,
+                Summary.user_id == user_id
+            )
+        )
+        summary = result.scalar_one_or_none()
+        
+        if not summary:
+            return False
+        
+        await db.delete(summary)
+        await db.commit()
+        
+        auth_logger.info(f"Summary {summary_id} deleted from database by user {user_id}")
+        return True
+
+
+# Global history store instance
+history_store = DatabaseHistoryStore()
+
+
+# ============================================
+# Legacy In-Memory History Storage (fallback)
 # ============================================
 
 class InMemoryHistoryStore:
-    """In-memory history storage for summarized videos."""
+    """In-memory history storage (fallback when DB unavailable)."""
     
     def __init__(self):
         self._histories: dict[int, list[dict[str, Any]]] = {}
@@ -260,68 +396,15 @@ class InMemoryHistoryStore:
         return True
 
 
-# Global history store instance
-history_store = InMemoryHistoryStore()
+# Fallback history store
+_fallback_history_store = InMemoryHistoryStore()
 
 
 # ============================================
-# Auth Service Functions
-# ============================================
-# Auth Service Functions
-# ============================================
-# In-Memory Summary/History Storage (TSK-0302)
+# Auth Service Functions (Database-backed)
 # ============================================
 
-class InMemoryHistoryStore:
-    """
-    In-memory history storage for summarized videos.
-    
-    Note: This is for development/demo purposes.
-    Database-backed storage will be implemented in P3.2.
-    """
-    
-    def __init__(self):
-        self._histories: Dict[int, List[Dict[str, Any]]] = {}  # user_id -> list of summaries
-    
-    def add_summary(self, user_id: int, video_id: str, video_title: str, summary: str) -> Dict[str, Any]:
-        """Add a summary to user's history."""
-        if user_id not in self._histories:
-            self._histories[user_id] = []
-        
-        entry = {
-            "id": len(self._histories[user_id]) + 1,
-            "video_id": video_id,
-            "video_title": video_title,
-            "summary": summary,
-            "created_at": utcnow().isoformat()
-        }
-        
-        self._histories[user_id].append(entry)
-        return entry
-    
-    def get_user_history(self, user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get user's summary history."""
-        histories = self._histories.get(user_id, [])
-        return histories[-limit:][::-1]  # Most recent first
-    
-    def delete_summary(self, user_id: int, summary_id: int) -> bool:
-        """Delete a summary from user's history."""
-        if user_id not in self._histories:
-            return False
-        
-        self._histories[user_id] = [h for h in self._histories[user_id] if h["id"] != summary_id]
-        return True
-
-
-# Global history store instance
-history_store = InMemoryHistoryStore()
-
-
-# ============================================
-# Auth Service Functions
-# ============================================
-
-def register_user(email: str, password: str, username: Optional[str] = None) -> Dict[str, Any]:
+async def register_user(email: str, password: str, username: Optional[str] = None, db=None) -> Dict[str, Any]:
     """
     Register a new user.
     
@@ -329,6 +412,7 @@ def register_user(email: str, password: str, username: Optional[str] = None) -> 
         email: User email
         password: User password
         username: Optional username
+        db: Database session
         
     Returns:
         Created user data (without password)
@@ -338,11 +422,12 @@ def register_user(email: str, password: str, username: Optional[str] = None) -> 
     """
     email = email.lower().strip()
     
-    if user_store.user_exists(email):
+    if await user_store.user_exists(email, db):
         raise ValueError(f"User already exists: {email}")
     
+    # Hash password using bcrypt (industry standard)
     hashed_pwd = hash_password(password)
-    user = user_store.create_user(email, username, hashed_pwd)
+    user = await user_store.create_user(email, username, hashed_pwd, db)
     
     # Return user without password
     return {
@@ -353,24 +438,26 @@ def register_user(email: str, password: str, username: Optional[str] = None) -> 
     }
 
 
-def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:
+async def authenticate_user(email: str, password: str, db=None) -> Optional[Dict[str, Any]]:
     """
     Authenticate a user.
     
     Args:
         email: User email
         password: User password
+        db: Database session
         
     Returns:
         User data if authenticated, None otherwise
     """
     email = email.lower().strip()
     
-    user = user_store.get_user_by_email(email)
+    user = await user_store.get_user_by_email(email, db)
     if not user:
         return None
     
-    if not verify_password(password, user["hashed_password"]):
+    # Verify password against bcrypt hash
+    if not verify_password(password, user["password"]):
         return None
     
     return user

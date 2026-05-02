@@ -179,4 +179,5 @@ cython_debug/
 .worktrees/
 
 # TypeScript build info
-*.tsbuildinfo
+*.tsbuildinfo.env.docker
+.env.docker
