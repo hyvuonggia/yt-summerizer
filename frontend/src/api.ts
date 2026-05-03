@@ -4,6 +4,46 @@ const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
   "http://localhost:8000";
 
+// Timeout configuration (in ms)
+const REQUEST_TIMEOUT = 60000; // 60 seconds - generous for AI summarize calls
+
+/**
+ * AbortController-based fetch with timeout.
+ * Throws ApiError with TIMEOUT code on timeout.
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (err) {
+    // Check for abort by name or message (more robust across environments)
+    const isAbort = err instanceof Error && (
+      err.name === "AbortError" || 
+      err.message?.includes("aborted")
+    );
+    if (isAbort) {
+      const apiError: ApiError = {
+        code: "TIMEOUT",
+        message: "The request timed out. Please try again.",
+        status: 0,
+      };
+      throw apiError;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // ============================================
 // Auth API (TSK-0303)
 // ============================================
@@ -212,7 +252,7 @@ export async function summarizeUrl(url: string, summaryLanguage: LanguageCode = 
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/summarize`, {
+    response = await fetchWithTimeout(`${API_BASE_URL}/api/summarize`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -221,6 +261,9 @@ export async function summarizeUrl(url: string, summaryLanguage: LanguageCode = 
       body: JSON.stringify({ url, summary_language: summaryLanguage }),
     });
   } catch (err) {
+    if ((err as ApiError).code === "TIMEOUT") {
+      throw err; // Already formatted as ApiError
+    }
     const apiError: ApiError = {
       code: "NETWORK_ERROR",
       message:

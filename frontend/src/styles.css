@@ -258,6 +258,21 @@ body {
   font-size: 0.9rem;
 }
 
+.loading-indicator .loading-message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.loading-indicator .progress-stage {
+  font-weight: 500;
+}
+
+.loading-indicator .progress-hint {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
 .spinner {
   width: 14px;
   height: 14px;
@@ -281,6 +296,13 @@ body {
   padding: 0.75rem 1rem;
   border-radius: 6px;
   margin-bottom: 1rem;
+}
+
+.error-banner .error-action {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
 }
 
 .summary-display {
@@ -329,9 +351,21 @@ body {
   padding-left: 1.25rem;
 }
 
+.summary-body ul {
+  list-style-type: disc;
+}
+
+.summary-body ol {
+  list-style-type: decimal;
+}
+
 .summary-body li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
   line-height: 1.5;
+}
+
+.summary-body li:last-child {
+  margin-bottom: 0;
 }
 
 .summary-body strong {

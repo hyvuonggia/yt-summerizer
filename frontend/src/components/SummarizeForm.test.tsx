@@ -24,6 +24,12 @@ const successPayload: SummarizeResponse = {
 describe("SummarizeForm", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // Mock localStorage for authentication
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => "fake-token"),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -65,7 +71,7 @@ describe("SummarizeForm", () => {
 
     const button = screen.getByRole("button", { name: /summarizing/i });
     expect(button).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(/working/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/starting|fetching|generating/i);
 
     resolveFetch({ ok: true, status: 200, json: async () => successPayload });
     await waitFor(() =>

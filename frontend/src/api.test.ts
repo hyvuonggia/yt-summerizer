@@ -4,6 +4,12 @@ import { summarizeUrl } from "./api";
 describe("summarizeUrl", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // Mock localStorage
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => "fake-token"),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -84,6 +90,19 @@ describe("summarizeUrl", () => {
 
     await expect(summarizeUrl("https://youtu.be/x")).rejects.toMatchObject({
       code: "NETWORK_ERROR",
+      status: 0,
+    });
+  });
+
+  it("throws ApiError with TIMEOUT code when request aborts", async () => {
+    // Simulate AbortError - in real fetch this happens when AbortController aborts
+    // The mock replaces fetch entirely, so we simulate the error type manually
+    const abortError = new Error("The operation was aborted.");
+    abortError.name = "AbortError";
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(abortError);
+
+    await expect(summarizeUrl("https://youtu.be/x")).rejects.toMatchObject({
+      code: "TIMEOUT",
       status: 0,
     });
   });

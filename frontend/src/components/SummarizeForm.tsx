@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { summarizeUrl } from "../api";
 import type { ApiError, SummarizeResponse, LanguageCode } from "../types";
 import { SUPPORTED_LANGUAGES } from "../types";
@@ -8,10 +8,38 @@ interface SummarizeFormProps {
   onError: (error: ApiError | null) => void;
 }
 
+/** Progress stages for the loading indicator */
+type ProgressStage = "starting" | "transcript" | "summary";
+
 export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
   const [url, setUrl] = useState("");
   const [summaryLanguage, setSummaryLanguage] = useState<LanguageCode>("en");
   const [loading, setLoading] = useState(false);
+  const [progressStage, setProgressStage] = useState<ProgressStage>("starting");
+  const [startTime, setStartTime] = useState<number | null>(null);
+
+  // Progress message based on stage
+  const progressMessages: Record<ProgressStage, string> = {
+    starting: "Starting up...",
+    transcript: "Fetching video transcript...",
+    summary: "Generating summary with AI...",
+  };
+
+  // Update progress stage periodically to give user feedback
+  useEffect(() => {
+    if (!loading) return;
+
+    const elapsed = startTime ? Date.now() - startTime : 0;
+
+    // Progress through stages based on elapsed time
+    if (elapsed < 2000) {
+      setProgressStage("starting");
+    } else if (elapsed < 5000) {
+      setProgressStage("transcript");
+    } else {
+      setProgressStage("summary");
+    }
+  }, [loading, startTime]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +60,8 @@ export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
     onResult(null);
 
     setLoading(true);
+    setStartTime(Date.now());
+    setProgressStage("starting");
     try {
       const result = await summarizeUrl(trimmed, summaryLanguage);
       onResult(result);
@@ -40,6 +70,7 @@ export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
       onError(err as ApiError);
     } finally {
       setLoading(false);
+      setStartTime(null);
     }
   }
 
@@ -76,7 +107,10 @@ export function SummarizeForm({ onResult, onError }: SummarizeFormProps) {
       {loading && (
         <div role="status" aria-live="polite" className="loading-indicator">
           <span className="spinner" aria-hidden="true" />
-          Working on it — fetching transcript and calling the AI…
+          <div className="loading-message">
+            <span className="progress-stage">{progressMessages[progressStage]}</span>
+            <span className="progress-hint">This usually takes 10-30 seconds</span>
+          </div>
         </div>
       )}
     </form>
