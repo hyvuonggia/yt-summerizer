@@ -14,8 +14,3 @@ uvicorn[standard]
 python-jose[cryptography]
 passlib[bcrypt]
 httpx
-
-# Database (Sprint P3.2 - MySQL)
-sqlalchemy
-aiomysql
-pymysql

@@ -59,29 +59,6 @@ class Settings:
         
         # Logging
         self.log_level: str = _get_env("LOG_LEVEL", "INFO")
-        
-        # Database Configuration (Sprint P3.2 - MySQL)
-        self.db_host: str = _get_env("DB_HOST", "localhost")
-        self.db_port: int = _get_env_int("DB_PORT", "3306")
-        self.db_user: str = _get_env("DB_USER", "yt_summerizer")
-        self.db_password: str = _get_env("DB_PASSWORD", "")
-        self.db_name: str = _get_env("DB_NAME", "yt_summerizer")
-    
-    @property
-    def database_url(self) -> str:
-        """Get the async database URL for SQLAlchemy."""
-        from urllib.parse import quote_plus
-        password = quote_plus(self.db_password) if self.db_password else ""
-        user = quote_plus(self.db_user) if self.db_user else ""
-        return f"mysql+aiomysql://{user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}"
-    
-    @property
-    def sync_database_url(self) -> str:
-        """Get the sync database URL for SQLAlchemy (for migrations)."""
-        from urllib.parse import quote_plus
-        password = quote_plus(self.db_password) if self.db_password else ""
-        user = quote_plus(self.db_user) if self.db_user else ""
-        return f"mysql+pymysql://{user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
 
 # Global settings instance
